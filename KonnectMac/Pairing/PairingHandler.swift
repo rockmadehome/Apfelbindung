@@ -3,8 +3,8 @@ import AppKit
 
 @MainActor
 class PairingHandler {
-    static func showPairingRequest(from device: Device, connection: KDEConnection, completion: @escaping (Bool) -> Void) {
-        let verificationKey = VerificationKeyHelper.computeFromConnection(conn: connection)
+    static func showPairingRequest(from device: Device, connection: KDEConnection, pairTimestamp: Int? = nil, completion: @escaping (Bool) -> Void) {
+        let verificationKey = VerificationKeyHelper.computeFromConnection(conn: connection, pairTimestamp: pairTimestamp)
 
         let alert = NSAlert()
         alert.messageText = "Pairing Request"

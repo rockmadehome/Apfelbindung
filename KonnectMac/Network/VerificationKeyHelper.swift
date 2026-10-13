@@ -4,7 +4,14 @@ import CommonCrypto
 
 class VerificationKeyHelper {
 
-    static func computeVerificationKey(localIdentity: SecIdentity, peerCertificate: SecCertificate) -> String {
+    /// v8 verification key: SHA-256( sortedConcat(SPKI_A, SPKI_B) + timestamp ),
+    /// rendered as the first 4 hash bytes in uppercase hex (8 chars) — same display
+    /// format as before, matching Android VerificationKeyHelper and Qt
+    /// pairinghandler.cpp:188-208. The timestamp is the one from the ORIGINAL pair
+    /// request packet (cached by DeviceManager.pairTimestamps); without it both
+    /// sides would derive different keys, so we fall back to the v7 formula only
+    /// when no timestamp is known.
+    static func computeVerificationKey(localIdentity: SecIdentity, peerCertificate: SecCertificate, pairTimestamp: Int? = nil) -> String {
         guard let localSPKI = extractSPKI(fromIdentity: localIdentity),
               let peerSPKI = extractSPKI(fromCertificate: peerCertificate) else {
             KLog.log("[VerKey] Failed to extract SPKI")
@@ -25,26 +32,36 @@ class VerificationKeyHelper {
             concatenated = peerSPKI + localSPKI
         }
 
-        let hash = sha256(data: concatenated)
+        // v8 appends the pair-request timestamp (decimal ASCII) to the hash input
+        let hashInput: Data
+        if let ts = pairTimestamp {
+            hashInput = concatenated + Data(String(ts).utf8)
+            KLog.log("[VerKey] v8 key with timestamp \(ts)")
+        } else {
+            hashInput = concatenated
+            KLog.log("[VerKey] No cached pair timestamp — computing v7-style key")
+        }
+
+        let hash = sha256(data: hashInput)
         let hexChars = hash.prefix(4).map { String(format: "%02x", $0) }.joined().uppercased()
 
         KLog.log("[VerKey] Computed: \(hexChars)")
         return hexChars
     }
 
-    @MainActor static func computeFromConnection(conn: KDEConnection) -> String {
+    @MainActor static func computeFromConnection(conn: KDEConnection, pairTimestamp: Int? = nil) -> String {
         guard let identity = CertificateManager.shared.getOrCreateIdentity() else { return "Unknown" }
 
         // Try to get peer cert from the connection's SSL context
         if let peerCert = conn.getPeerCertificate() {
-            return computeVerificationKey(localIdentity: identity, peerCertificate: peerCert)
+            return computeVerificationKey(localIdentity: identity, peerCertificate: peerCert, pairTimestamp: pairTimestamp)
         }
 
         // Try to find connection from DeviceManager
         if let deviceId = conn.remoteDeviceId {
             for (_, c) in DeviceManager.shared.connections {
                 if c.remoteDeviceId == deviceId, let cert = c.getPeerCertificate() {
-                    return computeVerificationKey(localIdentity: identity, peerCertificate: cert)
+                    return computeVerificationKey(localIdentity: identity, peerCertificate: cert, pairTimestamp: pairTimestamp)
                 }
             }
         }

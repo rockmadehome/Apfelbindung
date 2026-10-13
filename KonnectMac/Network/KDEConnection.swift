@@ -50,8 +50,11 @@ class KDEConnection {
         // Safety net: if connectionLoop never ran (object deallocated before queue executes),
         // clean up any remaining fd and SSL resources.
         if _fd >= 0 { Darwin.close(_fd); _fd = -1 }
+        // Order matters: SSLContext must be released BEFORE the TransferIdentity (whose
+        // deinit deletes the underlying keychain).
         if let ctx = sslContext { SSLClose(ctx); sslContext = nil }
         sslFdPtr?.deallocate()
+        transferIdentity = nil
     }
 
     init(host: String, port: UInt16, isIncoming: Bool) {
@@ -95,7 +98,10 @@ class KDEConnection {
             setsockopt(self._fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, socklen_t(MemoryLayout<Int32>.size))
 
             // Set connect timeout to 10 seconds to prevent blocking GCD threads
-            // on unreachable hosts (default TCP timeout is ~75 seconds)
+            // on unreachable hosts (default TCP timeout is ~75 seconds).
+            // IMPORTANT: SO_SNDTIMEO does NOT bound connect() on macOS — a blocking
+            // connect() to an unreachable IP hangs for the full ~75s kernel timeout.
+            // Use a non-blocking connect + poll with a hard 10s deadline instead.
             var connectTimeout = timeval(tv_sec: 10, tv_usec: 0)
             setsockopt(self._fd, SOL_SOCKET, SO_SNDTIMEO, &connectTimeout, socklen_t(MemoryLayout<timeval>.size))
 
@@ -110,20 +116,57 @@ class KDEConnection {
                 return
             }
 
-            let result = withUnsafePointer(to: &addr) { ptr in
+            // --- Non-blocking connect with 10s deadline ---
+            let originalFlags = fcntl(self._fd, F_GETFL, 0)
+            _ = fcntl(self._fd, F_SETFL, originalFlags | O_NONBLOCK)
+
+            let connectResult = withUnsafePointer(to: &addr) { ptr in
                 ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                     Darwin.connect(self._fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
                 }
             }
-            guard result == 0 else {
-                KLog.log("[KDEConn] Connect to \(self.host):\(self.port) failed: \(String(cString: strerror(errno)))")
-                Darwin.close(self._fd)
-                self._fd = -1
-                DispatchQueue.main.async { [weak self] in
-                    self?.onDisconnected?()
+
+            if connectResult != 0 {
+                guard errno == EINPROGRESS else {
+                    KLog.log("[KDEConn] Connect to \(self.host):\(self.port) failed: \(String(cString: strerror(errno)))")
+                    Darwin.close(self._fd)
+                    self._fd = -1
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onDisconnected?()
+                    }
+                    return
                 }
-                return
+
+                var pfd = pollfd(fd: self._fd, events: Int16(POLLOUT), revents: 0)
+                // poll() timeout is in milliseconds
+                let pollResult = poll(&pfd, 1, 10_000)
+                guard pollResult > 0 else {
+                    KLog.log("[KDEConn] Connect to \(self.host):\(self.port) timed out after 10s")
+                    Darwin.close(self._fd)
+                    self._fd = -1
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onDisconnected?()
+                    }
+                    return
+                }
+
+                var soError: Int32 = 0
+                var soErrorLen = socklen_t(MemoryLayout<Int32>.size)
+                getsockopt(self._fd, SOL_SOCKET, SO_ERROR, &soError, &soErrorLen)
+                guard soError == 0 else {
+                    KLog.log("[KDEConn] Connect to \(self.host):\(self.port) failed: \(String(cString: strerror(soError)))")
+                    Darwin.close(self._fd)
+                    self._fd = -1
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onDisconnected?()
+                    }
+                    return
+                }
             }
+
+            // Restore blocking mode — the read loop and SSL I/O rely on SO_RCVTIMEO/
+            // SO_SNDTIMEO semantics, not on O_NONBLOCK.
+            _ = fcntl(self._fd, F_SETFL, originalFlags)
 
             self.enableKeepAlive()
             self._running = true
@@ -145,11 +188,15 @@ class KDEConnection {
         setsockopt(_fd, SOL_SOCKET, SO_NOSIGPIPE, &nosigpipe, socklen_t(MemoryLayout<Int32>.size))
         var keepAlive: Int32 = 1
         setsockopt(_fd, SOL_SOCKET, SO_KEEPALIVE, &keepAlive, socklen_t(MemoryLayout<Int32>.size))
-        var keepIdle: Int32 = 10
+        // Upstream keepalive profile (kdeconnect-kde): idle 60s before the first probe.
+        // The old 10/5/3 profile (~25s to detect a dead peer) also woke the phone every
+        // few seconds while it was in Doze — Android's own desktop profile uses 60s idle
+        // precisely to avoid nudging a dozing device, at the cost of slower detection.
+        var keepIdle: Int32 = 60
         setsockopt(_fd, IPPROTO_TCP, TCP_KEEPALIVE, &keepIdle, socklen_t(MemoryLayout<Int32>.size))
-        var keepIntvl: Int32 = 5
+        var keepIntvl: Int32 = 15
         setsockopt(_fd, IPPROTO_TCP, TCP_KEEPINTVL, &keepIntvl, socklen_t(MemoryLayout<Int32>.size))
-        var keepCnt: Int32 = 3
+        var keepCnt: Int32 = 4
         setsockopt(_fd, IPPROTO_TCP, TCP_KEEPCNT, &keepCnt, socklen_t(MemoryLayout<Int32>.size))
     }
 
@@ -329,6 +376,13 @@ class KDEConnection {
         }
     }
 
+    /// Per-connection TLS identity. Held for the lifetime of this KDEConnection so the
+    /// underlying private keychain survives until SSLClose has fully released the
+    /// cert/key references. See `CertificateManager.TransferIdentity` — sharing the
+    /// cached SecIdentity across SSLContexts breaks handshakes with -9810 after
+    /// sleep/wake.
+    private var transferIdentity: CertificateManager.TransferIdentity?
+
     private func setupTLS(isServer: Bool) -> Bool {
         guard let ctx = SSLCreateContext(nil, isServer ? .serverSide : .clientSide, .streamType) else { return false }
         sslContext = ctx
@@ -347,8 +401,15 @@ class KDEConnection {
         SSLSetSessionOption(ctx, .breakOnServerAuth, true)
         SSLSetSessionOption(ctx, .breakOnClientAuth, true)
 
-        guard let identity = CertificateManager.shared.getOrCreateIdentity() else { return false }
-        let certs = [identity] as CFArray
+        // Fresh single-use SecIdentity for THIS handshake. The shared cached identity
+        // gets into a state where every handshake fails with -9810 after sleep/wake —
+        // the bug that blocked re-pairing overnight.
+        guard let transferId = CertificateManager.shared.freshTransferIdentity() else {
+            KLog.log("[KDEConn] Could not create fresh TLS identity")
+            return false
+        }
+        transferIdentity = transferId
+        let certs = [transferId.identity] as CFArray
         SSLSetCertificate(ctx, certs)
 
         return true
@@ -483,7 +544,11 @@ class KDEConnection {
         let ptr = sslFdPtr
         sslFdPtr = nil
         ptr?.deallocate()
+        // Release the SSLContext BEFORE the TransferIdentity: dropping the context
+        // lets SecureTransport release its cert/key references before the identity's
+        // deinit unlinks the underlying keychain.
         sslContext = nil
+        transferIdentity = nil
         _tlsEstablished = false
     }
 

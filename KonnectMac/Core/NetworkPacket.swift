@@ -58,16 +58,26 @@ struct NetworkPacket: Codable {
             "deviceId": AnyCodable(config.deviceId),
             "deviceName": AnyCodable(config.deviceName),
             "deviceType": AnyCodable(config.deviceType),
-            "protocolVersion": AnyCodable(7),
+            // Protocol v8 (KDE Connect 2024+): current Android REQUIRES a `timestamp`
+            // field on kdeconnect.pair (±30 min window) and desktop v8 rejects peers
+            // announcing < 8. Android still tolerates v7 peers, but pairing requests
+            // without a timestamp are discarded by PairingHandler.kt:71-85.
+            "protocolVersion": AnyCodable(8),
             "tcpPort": AnyCodable(config.tcpPort),
             "incomingCapabilities": AnyCodable(config.incomingCapabilities),
             "outgoingCapabilities": AnyCodable(config.outgoingCapabilities)
         ])
     }
 
-    static func pairPacket(pair: Bool) -> NetworkPacket {
+    /// v8: kdeconnect.pair must carry a `timestamp` (unix seconds). Android validates
+    /// it against its clock (±30 min) and silently discards the pair request without
+    /// it (PairingHandler.kt:71-85). The same timestamp feeds the verification key
+    /// (SHA-256 over sorted SPKIs + timestamp), so both sides must use the value from
+    /// the ORIGINAL pair request — callers cache it in DeviceManager.pairTimestamps.
+    static func pairPacket(pair: Bool, timestamp: Int = Int(Date().timeIntervalSince1970)) -> NetworkPacket {
         return NetworkPacket(type: "kdeconnect.pair", body: [
-            "pair": AnyCodable(pair)
+            "pair": AnyCodable(pair),
+            "timestamp": AnyCodable(timestamp)
         ])
     }
 }

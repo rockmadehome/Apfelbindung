@@ -165,44 +165,50 @@ que upstream ya había corregido** (ver `Network/KDEConnection.swift` de upstrea
 
 ## Pendiente para próxima sesión (5–6)
 
-### 5. Reconnect robusto (bajo riesgo, no toca protocolo)
+> **ACTUALIZACIÓN 2026-10-13:** los ítems 5 y 6 fueron implementados en v3.0
+> (salvo el *connection packet* pre-TLS de v8, omitido a propósito — Android lo
+> trata como opcional y enviar una línea JSON extra pre-TLS arriesga romper el
+> parser de identidad de Android). Ver commits de v3.0.
+
+### 5. Reconnect robusto (bajo riesgo, no toca protocolo) — ✅ IMPLEMENTADO v3.0
 
 - `DeviceManager.swift:~230` (`reconnectPairedDevices`): usar `device.tcpPort` (puerto
   real aprendido por discovery) con fallback a `Config.defaultPort`, en vez de
-  `Config.defaultPort` fijo. Un teléfono con TCP != 1716 nunca es dialeable.
+  `Config.defaultPort` fijo. Un teléfono con TCP != 1716 nunca es dialeable. ✅
 - `KDEConnection.connectAndRun()` (`~99-100`): `SO_SNDTIMEO` **no acota `connect()` en
   macOS**. Un IP guardado inalcanzable cuelga ~75 s la queue. Implementar connect
   no bloqueante (`O_NONBLOCK`) + `select`/`poll` con deadline de 10 s, o mover el dial a
-  un hilo con timeout. Upstream ya lo intenta con `SocketHelpers`, revisar su enfoque.
+  un hilo con timeout. Upstream ya lo intenta con `SocketHelpers`, revisar su enfoque. ✅ (O_NONBLOCK + poll 10s)
 - Revisar keepalive: el fork lo bajó a 10 s/5 s/3 (~25 s); upstream usa 60 s/15 s/4
   comentando explícitamente que el idle de 60 s es para no despertar al teléfono en Doze.
-  Volver al perfil de upstream salvo evidencia contraria.
+  Volver al perfil de upstream salvo evidencia contraria. ✅ (60/15/4)
 - `checkConnectionHealth()` está vacío pero se crea un timer de 5 s: o se implementa un
   health check real (que no dependa del `isSocketAlive` basado en `SO_ERROR`, que no
-  detecta half-open) o se elimina el timer.
+  detecta half-open) o se elimina el timer. ✅ (timer eliminado; solo keepalive TCP)
 - `handleIncomingSocket` (`~350-379`) rechaza entrantes si cree que hay TLS sano con
   `idle ≤ 10`. KDE Connect siempre reemplaza el link ante una conexión nueva (validando
-  cert). Evaluar aceptar siempre y dejar que el dedupe por `deviceId` decida.
+  cert). Evaluar aceptar siempre y dejar que el dedupe por `deviceId` decida. ✅ (siempre reemplaza)
 
-### 6. Subir a protocolVersion 8 (requiere device Android + Mac; sesión aparte)
+### 6. Subir a protocolVersion 8 (requiere device Android + Mac; sesión aparte) — ✅ IMPLEMENTADO v3.0
 
 Hoy `NetworkPacket.swift:61` anuncia `protocolVersion: 7`. Android todavía acepta v7
 (por eso "generalmente anda"), pero el desktop actual **rechaza `< 8`**
 (`lanlinkprovider.cpp:300,548`). Cambios necesarios:
 
-- `identityPacket()`: `protocolVersion: 8`.
+- `identityPacket()`: `protocolVersion: 8`. ✅
 - `pairPacket(pair:)`: agregar `timestamp` (segundos unix). Android exige `timestamp`
-  (±30 min) para v8; sin él **descarta el pair request** (`PairingHandler.kt:71-85`).
+  (±30 min) para v8; sin él **descarta el pair request** (`PairingHandler.kt:71-85`). ✅
 - `VerificationKeyHelper`: la clave v8 es `SHA256(sortedConcat(SPKI_A, SPKI_B) + timestamp)`
   (`PairingHandler.kt:263-266`, `pairinghandler.cpp:188-208`); la actual no incluye el
-  timestamp. Cachear el timestamp con el que se envió/recibió el request para mostrarla.
+  timestamp. Cachear el timestamp con el que se envió/recibió el request para mostrarla. ✅
+  (`DeviceManager.pairTimestamps`; el que responde hace echo del timestamp del request)
 - Paquete pre-TLS de salida: v8 usa un *connection packet* con `targetDeviceId` y
   `targetProtocolVersion` (`deviceinfo.h:128-137`). Android lo tolera opcional, el
-  desktop v8 lo valida (`isValidConnectionPacket`).
+  desktop v8 lo valida (`isValidConnectionPacket`). ⏭️ OMITIDO (ver nota arriba)
 - Identidad TLS **fresca por conexión** (upstream `882a92e` / `CertificateManager.freshTransferIdentity`).
   La `SecIdentity` cacheada queda rota tras sleep/wake y los handshakes fallan con -9810
-  hasta reiniciar la app; esto es lo que rompía re-pair tras dormir.
-- Revisar capabilities de `kdeconnect.pair` una vez en v8.
+  hasta reiniciar la app; esto es lo que rompía re-pair tras dormir. ✅ (TransferIdentity portada del upstream)
+- Revisar capabilities de `kdeconnect.pair` una vez en v8. ✅ (sin cambios requeridos; capabilities siguen en identity)
 
 > **No verificable en este entorno** (VPS Linux sin Xcode/macOS). Todo cambio de 5–6
 > debe compilar y probarse contra un Android real antes de push a `stable`.

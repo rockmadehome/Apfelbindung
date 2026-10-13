@@ -11,6 +11,12 @@ class DeviceManager: ObservableObject {
     private var connectingDeviceIds = Set<String>()
     private var tlsEstablishedDeviceIds = Set<String>()
     @Published var pendingPairRequests = Set<String>() // devices WE sent pair request to
+    /// Pair-request timestamp per device (unix seconds). v8 verification keys are
+    /// SHA-256(sorted SPKIs + timestamp), where the timestamp is the one from the
+    /// ORIGINAL pair request — ours if we initiated, theirs if they did. Cleared
+    /// once pairing completes (or is undone) so a stale value can't leak into a
+    /// future pairing session.
+    private var pairTimestamps: [String: Int] = [:]
     private var pendingIncomingPairDevices = Set<String>() // devices showing incoming pair dialog (prevents duplicate notifications)
     private var lastPairRequestTime: [String: Date] = [:] // deviceId -> when we last sent pair request
     private var lastReconnectAttemptTime: [String: Date] = [:] // deviceId -> last outbound reconnect attempt
@@ -20,7 +26,6 @@ class DeviceManager: ObservableObject {
     private let udpDiscovery = UDPDiscovery()
     private let tcpServer = LanServer()
     private var broadcastTimer: Timer?
-    private var healthCheckTimer: Timer?
     private var networkMonitor: NWPathMonitor?
     private var sleepWakeObserver: NSObjectProtocol?
     private var willSleepObserver: NSObjectProtocol?
@@ -106,8 +111,6 @@ class DeviceManager: ObservableObject {
                 self.isAsleep = true
                 self.broadcastTimer?.invalidate()
                 self.broadcastTimer = nil
-                self.healthCheckTimer?.invalidate()
-                self.healthCheckTimer = nil
                 self.networkDebounceTask?.cancel()
                 self.restartTransportServices(stopOnly: true)
                 for (_, conn) in self.connections {
@@ -183,13 +186,6 @@ class DeviceManager: ObservableObject {
                 }
             }
         }
-
-        healthCheckTimer?.invalidate()
-        healthCheckTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.checkConnectionHealth()
-            }
-        }
     }
 
     /// True while at least one paired device has a live, TLS-established connection.
@@ -242,23 +238,26 @@ class DeviceManager: ObservableObject {
             // Try last known IP
             if let ip = Config.shared.savedDeviceIP(for: device.id), !ip.isEmpty {
                 lastReconnectAttemptTime[device.id] = Date()
-                KLog.log("[DeviceManager] Reconnecting to \(device.name) at \(ip)")
+                // Use the TCP port learned from discovery when available — a phone whose
+                // TCP stack moved it off 1716 (e.g. 1716 busy on a previous crash) is
+                // undialable if we always assume the default port.
+                let port = device.tcpPort >= Config.minPort ? device.tcpPort : Config.defaultPort
+                KLog.log("[DeviceManager] Reconnecting to \(device.name) at \(ip):\(port)")
                 // Reconnect via device-bound outgoing flow so remoteDeviceId is known
                 // before early post-TLS packets arrive.
-                connectOutgoing(device: device, host: ip, port: Config.defaultPort)
+                connectOutgoing(device: device, host: ip, port: port)
             }
         }
     }
 
-    // MARK: - Connection Health Check
+    // MARK: - Connection Health
 
-    /// Periodically check active connections for liveness.
-    /// No app-level health check. TCP keepalive (idle=10s, interval=5s, count=3)
-    /// detects dead peers in ~25s. KDE Connect desktop does the same — no health timer.
-    /// When the phone is locked/Dozing, battery.request responses are delayed,
-    /// so any idle-timeout-based disconnect causes spurious reconnects.
-    private func checkConnectionHealth() {
-    }
+    // No app-level health check and no health timer. TCP keepalive
+    // (idle=60s, interval=15s, count=4) detects dead peers; an app-level
+    // isSocketAlive() poll adds nothing (getsockopt(SO_ERROR) can't see
+    // half-open connections) and idle-timeout disconnects cause spurious
+    // reconnects when the phone is locked/Dozing. KDE Connect desktop ships
+    // without one either.
 
     // MARK: - UDP Discovery Handler
 
@@ -340,8 +339,9 @@ class DeviceManager: ObservableObject {
         // Connection replacement rules:
         // - Pending pair → accept (phone sends pair=true on new connections)
         // - Running + pre-TLS handshake → prefer incoming (break dual-outgoing races)
-        // - Running + TLS established + live + idle >10s → accept (peer detected dead connection, reconnecting)
-        // - Running + TLS established + live + idle ≤10s → reject incoming (healthy connection)
+        // - Running + TLS established + live → replace (KDE Connect always lets the
+        //   newest connection win; the cert is validated and deviceId dedupe applies
+        //   once the identity packet arrives)
         // - Running + dead socket → accept incoming
         // - Not running → accept incoming
 
@@ -378,23 +378,18 @@ class DeviceManager: ObservableObject {
                         break
                     }
 
-                    // TLS established and socket looks alive, but if idle >10s the peer
-                    // has detected the dead connection and is reconnecting. isSocketAlive()
-                    // returns true for half-open TCP connections because getsockopt(SO_ERROR)
-                    // only flags errors already detected by the kernel — a peer that silently
-                    // dropped won't show up until keepalive probes fail (10-25s).
+                    // TLS established and socket looks alive. KDE Connect always replaces
+                    // the link when the peer opens a new one — isSocketAlive() can't see
+                    // half-open TCP (getsockopt(SO_ERROR) only reports errors the kernel
+                    // already noticed), so refusing here would strand a dead link for up
+                    // to a full keepalive cycle. The deviceId dedupe (onIdentityReceived)
+                    // decides which connection ultimately survives.
                     let idle = Date().timeIntervalSince(conn.lastPacketTime)
-                    if idle > 10 {
-                        KLog.log("[TCP] Accepting incoming from \(host) — existing connection idle \(Int(idle))s (fd=\(conn.fd))")
-                        conn.disconnect()
-                        connections.removeValue(forKey: key)
-                        if let devId = deviceId { tlsEstablishedDeviceIds.remove(devId) }
-                        break
-                    }
-
-                    KLog.log("[TCP] Rejecting incoming from \(host) — existing TLS connection fd=\(conn.fd) (idle \(Int(idle))s)")
-                    Darwin.close(fd)
-                    return
+                    KLog.log("[TCP] Replacing TLS connection from \(host) (fd=\(conn.fd), idle \(Int(idle))s) with incoming")
+                    conn.disconnect()
+                    connections.removeValue(forKey: key)
+                    if let devId = deviceId { tlsEstablishedDeviceIds.remove(devId) }
+                    break
                 }
                 KLog.log("[TCP] Replacing stale connection from \(host) (fd=\(conn.fd), paired=\(isPaired))")
                 conn.disconnect()
@@ -741,10 +736,13 @@ class DeviceManager: ObservableObject {
         if pendingPairRequests.contains(deviceId) {
             let timeSinceLastSend = lastPairRequestTime[deviceId].map { Date().timeIntervalSince($0) } ?? .infinity
             if timeSinceLastSend > 5 {
-                let pairPacket = NetworkPacket.pairPacket(pair: true)
+                // Reuse the original request timestamp — it feeds the v8 verification key
+                let ts = pairTimestamps[deviceId] ?? Int(Date().timeIntervalSince1970)
+                pairTimestamps[deviceId] = ts
+                let pairPacket = NetworkPacket.pairPacket(pair: true, timestamp: ts)
                 device.send(pairPacket)
                 lastPairRequestTime[deviceId] = Date()
-                KLog.log("[Pairing] Re-sent pair request to \(device.name) on new connection (fd=\(conn.fd))")
+                KLog.log("[Pairing] Re-sent pair request to \(device.name) on new connection (fd=\(conn.fd), ts=\(ts))")
             } else {
                 KLog.log("[Pairing] Skipping re-send to \(device.name) — last sent \(String(format: "%.1f", timeSinceLastSend))s ago")
             }
@@ -1021,10 +1019,12 @@ class DeviceManager: ObservableObject {
 
         if let conn = conn, conn.running, conn.fd >= 0 {
             // Send pair request on the active connection
-            let pairPacket = NetworkPacket.pairPacket(pair: true)
+            let ts = Int(Date().timeIntervalSince1970)
+            pairTimestamps[deviceId] = ts
+            let pairPacket = NetworkPacket.pairPacket(pair: true, timestamp: ts)
             conn.send(pairPacket)
             lastPairRequestTime[deviceId] = Date()
-            KLog.log("[Pairing] Sent pair request to \(device.name) (fd=\(conn.fd))")
+            KLog.log("[Pairing] Sent pair request to \(device.name) (fd=\(conn.fd), ts=\(ts))")
         } else {
             // No active connection — broadcast to trigger phone to connect, then retry
             KLog.log("[Pairing] No active connection to \(device.name), broadcasting and waiting")
@@ -1033,10 +1033,12 @@ class DeviceManager: ObservableObject {
                 guard let self = self, self.pendingPairRequests.contains(deviceId) else { return }
                 let retryConn = device.kdeConn ?? self.connections[deviceId]
                 if let c = retryConn, c.running, c.fd >= 0 {
-                    let pairPacket = NetworkPacket.pairPacket(pair: true)
+                    let ts = self.pairTimestamps[deviceId] ?? Int(Date().timeIntervalSince1970)
+                    self.pairTimestamps[deviceId] = ts
+                    let pairPacket = NetworkPacket.pairPacket(pair: true, timestamp: ts)
                     c.send(pairPacket)
                     self.lastPairRequestTime[deviceId] = Date()
-                    KLog.log("[Pairing] Sent pair request to \(device.name) on retry (fd=\(c.fd))")
+                    KLog.log("[Pairing] Sent pair request to \(device.name) on retry (fd=\(c.fd), ts=\(ts))")
                 } else {
                     KLog.log("[Pairing] Still no connection to \(device.name), will send on next connect")
                 }
@@ -1054,7 +1056,7 @@ class DeviceManager: ObservableObject {
 
     func verificationKey(for deviceId: String) -> String? {
         guard let conn = connections[deviceId] ?? device(for: deviceId)?.kdeConn else { return nil }
-        let key = VerificationKeyHelper.computeFromConnection(conn: conn)
+        let key = VerificationKeyHelper.computeFromConnection(conn: conn, pairTimestamp: pairTimestamps[deviceId])
         return key.isEmpty ? nil : key
     }
 
@@ -1072,6 +1074,7 @@ class DeviceManager: ObservableObject {
         Config.shared.removePairedDevice(id: deviceId)
         pendingPairRequests.remove(deviceId)
         recentlyPairedDevices.removeValue(forKey: deviceId)
+        pairTimestamps.removeValue(forKey: deviceId)
         self.updateDeviceState(device, to: .discovered)
         device.plugins.removeAll()
         KLog.log("[Pairing] Unpaired from \(device.name)")
@@ -1083,7 +1086,12 @@ class DeviceManager: ObservableObject {
             return
         }
         let pair = packet.body["pair"]?.value as? Bool ?? false
-        KLog.log("[Pairing] Received pair=\(pair) from \(device.name) (isPaired=\(Config.shared.isPaired(deviceId: deviceId)), pending=\(pendingPairRequests.contains(deviceId)))")
+        // v8: pair packets carry a `timestamp` (unix seconds). It feeds the verification
+        // key, so ownership matters: if THEY initiated, their timestamp is the shared
+        // key input; if WE initiated, ours is already cached in pairTimestamps.
+        let rawTimestamp = packet.body["timestamp"]?.value
+        let remoteTimestamp = (rawTimestamp as? Int64).map(Int.init) ?? rawTimestamp as? Int
+        KLog.log("[Pairing] Received pair=\(pair) from \(device.name) (isPaired=\(Config.shared.isPaired(deviceId: deviceId)), pending=\(pendingPairRequests.contains(deviceId)), remoteTs=\(remoteTimestamp.map(String.init) ?? "none"))")
 
         if pair {
             // If WE initiated the pairing, the phone's "pair: true" is acceptance — complete directly
@@ -1095,10 +1103,11 @@ class DeviceManager: ObservableObject {
             }
 
             // Already paired — this is a re-confirmation (phone reconnected, sent pair=true again).
-            // Silently accept it. Don't show a pairing dialog.
+            // Silently accept it. Don't show a pairing dialog. Echo their timestamp when
+            // present — Android validates the window on pair packets.
             if Config.shared.isPaired(deviceId: deviceId) {
                 KLog.log("[Pairing] Already paired with \(device.name), confirming re-pair silently")
-                let response = NetworkPacket.pairPacket(pair: true)
+                let response = NetworkPacket.pairPacket(pair: true, timestamp: remoteTimestamp ?? pairTimestamps[deviceId] ?? Int(Date().timeIntervalSince1970))
                 conn.send(response)
                 completePairing(device: device, conn: conn)
                 return
@@ -1114,10 +1123,16 @@ class DeviceManager: ObservableObject {
             }
             pendingIncomingPairDevices.insert(deviceId)
             KLog.log("[Pairing] Request from \(device.name)")
+            // v8: THEIR request timestamp is the verification-key input on both sides —
+            // cache it before the dialog and pass it to the key computation.
+            if let ts = remoteTimestamp {
+                pairTimestamps[deviceId] = ts
+            }
             // Pre-capture cert now — conn.getPeerCertificate() may return nil later if
             // the phone's connection cycles during runModal() and SSL is cleaned up.
             let preCapturedCert = conn.getPeerCertificate()
-            PairingHandler.showPairingRequest(from: device, connection: conn) { [weak self] accepted in
+            let keyTimestamp = pairTimestamps[deviceId]
+            PairingHandler.showPairingRequest(from: device, connection: conn, pairTimestamp: keyTimestamp) { [weak self] accepted in
                 guard let self = self else { return }
                 // defer ensures cleanup even if something throws or returns early
                 defer { self.pendingIncomingPairDevices.remove(deviceId) }
@@ -1130,10 +1145,13 @@ class DeviceManager: ObservableObject {
                     // Update device's connection reference — device.send() uses kdeConn,
                     // which may still point to the dead connection from before the dialog.
                     device.kdeConn = activeConn
-                    let response = NetworkPacket.pairPacket(pair: true)
+                    // Echo THEIR request timestamp — Android recomputes the verification
+                    // key from the original request and validates the ±30min window.
+                    let responseTs = remoteTimestamp ?? keyTimestamp ?? Int(Date().timeIntervalSince1970)
+                    let response = NetworkPacket.pairPacket(pair: true, timestamp: responseTs)
                     // Send directly on activeConn as belt-and-suspenders
                     activeConn.send(response)
-                    KLog.log("[Pairing] Sent pair=true response to \(device.name) on fd=\(activeConn.fd)")
+                    KLog.log("[Pairing] Sent pair=true response to \(device.name) on fd=\(activeConn.fd) (ts=\(responseTs))")
                     self.completePairing(device: device, conn: activeConn, preCapturedCert: preCapturedCert)
                 } else {
                     let response = NetworkPacket.pairPacket(pair: false)
@@ -1157,6 +1175,7 @@ class DeviceManager: ObservableObject {
                 self.updateDeviceState(device, to: .discovered)
                 device.plugins.removeAll()
                 recentlyPairedDevices.removeValue(forKey: deviceId)
+                pairTimestamps.removeValue(forKey: deviceId)
                 // Disconnect the TLS connection — unpaired device shouldn't keep the channel open
                 conn.disconnect()
                 connections.removeValue(forKey: deviceId)
@@ -1196,6 +1215,9 @@ class DeviceManager: ObservableObject {
         pruneRecentlyPairedDevices()
         // Always clear pending state — whether we initiated or phone did
         pendingPairRequests.remove(device.id)
+        // The pair-request timestamp served its purpose (verification key during the
+        // dialog) — drop it so a stale value can't leak into a future pairing session.
+        pairTimestamps.removeValue(forKey: device.id)
 
         // Save peer certificate — REQUIRED for secure pairing.
         // Fall back to preCapturedCert if the connection cycled during a runModal() dialog.
@@ -1311,8 +1333,6 @@ class DeviceManager: ObservableObject {
         // Invalidate broadcast timer
         broadcastTimer?.invalidate()
         broadcastTimer = nil
-        healthCheckTimer?.invalidate()
-        healthCheckTimer = nil
 
         // Remove sleep/wake observers
         if let observer = willSleepObserver {

@@ -57,6 +57,106 @@ class CertificateManager {
         FileManager.default.fileExists(atPath: p12Path.path)
     }
 
+    // MARK: - Fresh per-connection identity (upstream 882a92e)
+
+    /// A SecIdentity scoped to a single TLS connection.
+    ///
+    /// Why this exists: the long-lived `cachedIdentity` from `getOrCreateIdentity()`
+    /// ends up in a broken state after sleep/wake — SecureTransport keeps per-identity
+    /// internal state referencing a stale snapshot of the keychain, and every
+    /// subsequent handshake fails with errSSLInternal (-9810) until the app restarts.
+    /// That is what blocked re-pairing after the Mac slept overnight.
+    ///
+    /// Each `TransferIdentity` owns a private keychain holding an independent
+    /// SecIdentity for one TLS context. The keychain file is unlinked when the
+    /// handle is released, so the caller must keep it alive for the whole lifetime
+    /// of the SSLContext using it.
+    final class TransferIdentity {
+        let identity: SecIdentity
+        private let keychain: SecKeychain
+        private let keychainPath: String
+
+        init(identity: SecIdentity, keychain: SecKeychain, path: String) {
+            self.identity = identity
+            self.keychain = keychain
+            self.keychainPath = path
+        }
+
+        deinit {
+            // SecKeychainDelete removes the file and clears the search list entry;
+            // the explicit unlink attempts cover the SQLite "-db" variant.
+            SecKeychainDelete(keychain)
+            try? FileManager.default.removeItem(atPath: keychainPath)
+            try? FileManager.default.removeItem(atPath: keychainPath + "-db")
+        }
+    }
+
+    /// Create a fresh, single-use SecIdentity backed by its own private keychain.
+    /// The caller MUST keep the returned `TransferIdentity` alive for the entire
+    /// lifetime of the SSLContext using `.identity` — releasing it early tears down
+    /// the keychain while SecureTransport still holds cert/key references.
+    func freshTransferIdentity() -> TransferIdentity? {
+        // Make sure the master P12 exists first (first-launch path generates it).
+        if !FileManager.default.fileExists(atPath: p12Path.path) {
+            _ = getOrCreateIdentity()
+        }
+
+        guard let p12Data = try? Data(contentsOf: p12Path) else {
+            KLog.log("[Cert] freshTransferIdentity: cannot read P12", level: .error)
+            return nil
+        }
+
+        // Per-call keychain so SecureTransport can't share state across handshakes.
+        let tempPath = NSTemporaryDirectory() + "konnectmac-conn-\(UUID().uuidString).keychain"
+
+        var keychain: SecKeychain?
+        let password = "" as NSString
+        let createStatus = SecKeychainCreate(tempPath, 0, password.utf8String, false, nil, &keychain)
+        guard createStatus == errSecSuccess, let kc = keychain else {
+            KLog.log("[Cert] freshTransferIdentity: SecKeychainCreate failed: \(createStatus)")
+            return nil
+        }
+
+        // NOTE: SecKeychainCreate adds the keychain to the global search list as a side
+        // effect. Upstream deliberately leaves the search list alone (filtering it
+        // correlated with a system-level crash in their v1.8 attempt). The transient
+        // pollution is harmless — the keychain holds the same cert as the master and
+        // is unlinked when the TransferIdentity is released.
+
+        // Never lock — empty password means no prompts; lockOnSleep=false so wake doesn't lock.
+        var settings = SecKeychainSettings(
+            version: UInt32(SEC_KEYCHAIN_SETTINGS_VERS1),
+            lockOnSleep: DarwinBoolean(false),
+            useLockInterval: DarwinBoolean(false),
+            lockInterval: UInt32.max
+        )
+        SecKeychainSetSettings(kc, &settings)
+        SecKeychainUnlock(kc, 0, password.utf8String, true)
+
+        let options: [String: Any] = [
+            kSecImportExportPassphrase as String: p12Password,
+            kSecImportExportKeychain as String: kc
+        ]
+
+        var items: CFArray?
+        let importStatus = SecPKCS12Import(p12Data as CFData, options as CFDictionary, &items)
+
+        guard importStatus == errSecSuccess,
+              let arr = items as? [[String: Any]],
+              let first = arr.first,
+              let identityRef = first[kSecImportItemIdentity as String] else {
+            KLog.log("[Cert] freshTransferIdentity: P12 import failed status=\(importStatus)", level: .error)
+            SecKeychainDelete(kc)
+            try? FileManager.default.removeItem(atPath: tempPath)
+            try? FileManager.default.removeItem(atPath: tempPath + "-db")
+            return nil
+        }
+
+        // swiftlint:disable:next force_cast — SecPKCS12Import guarantees SecIdentity for this key
+        let identity = identityRef as! SecIdentity
+        return TransferIdentity(identity: identity, keychain: kc, path: tempPath)
+    }
+
     // MARK: - P12 Generation via openssl
 
     private func generateP12() {
