@@ -460,9 +460,18 @@ class KDEConnection {
         pendingWriteLock.unlock()
 
         KLog.log("[KDEConn] disconnect() called for \(host) (fd=\(_fd), wasRunning=\(_running))")
+        // Only signal the connection loop to stop — do NOT invalidate the fd pointer here.
+        // The connectionLoop owns the fd lifecycle: it sees running=false, exits its read
+        // loop (bounded by the 500ms SO_RCVTIMEO), then calls cleanupSSL(), which runs
+        // SSLClose() so the TLS close-notify alert reaches the peer over the still-valid
+        // socket, *then* closes the fd.
+        //
+        // Invalidating `sslFdPtr.pointee = -1` here made SSLClose's write callback fire
+        // against fd=-1, so close-notify was never sent. The peer then only noticed the
+        // drop via RST/keepalive (much slower) and, on a post-update relaunch, would send
+        // pair=false (unpair-by-remote). The 500ms RCVTIMEO already bounds loop exit.
         running = false
-        sslFdPtr?.pointee = -1
-        KLog.log("[KDEConn] disconnect() done for \(host), running=\(_running)")
+        KLog.log("[KDEConn] disconnect() done for \(host), running=\(running)")
     }
 
     private func cleanupSSL() {

@@ -51,7 +51,7 @@ class DeviceManager: ObservableObject {
         udpDiscovery.onIdentityReceived = { [weak self] packet, host in
             self?.handleDiscoveredIdentity(packet: packet, host: host)
         }
-        udpDiscovery.startListening(port: Config.shared.tcpPort)
+        udpDiscovery.startListening(port: Config.udpPort)
 
         // Load paired devices BEFORE broadcasting, so Tailscale pre-assign can find them
         loadPairedDevices()
@@ -81,6 +81,9 @@ class DeviceManager: ObservableObject {
                     }
 
                     if path.status == .satisfied {
+                        // A recovered/new network invalidates prior handshake failures,
+                        // so drop the accumulated backoff before retrying.
+                        self.consecutiveTLSFailures.removeAll()
                         self.broadcastIdentity()
                         if !self.inWakeRecoveryWindow {
                             self.reconnectPairedDevices()
@@ -164,9 +167,19 @@ class DeviceManager: ObservableObject {
         broadcastTimer?.invalidate()
         broadcastTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.broadcastIdentity()
-                if self?.inWakeRecoveryWindow == false {
-                    self?.reconnectPairedDevices()
+                guard let self = self else { return }
+                // Do NOT re-announce while a paired session is healthy. KDE Connect's
+                // peers treat every discovered identity as a connect trigger and reset
+                // their link (Android's LanLinkProvider does not check for an existing
+                // link before connecting). A fixed 15s broadcast therefore tears down
+                // and rebuilds the TLS session every cycle. Standard KDE Connect only
+                // announces on start and on network changes. When the session drops we
+                // broadcast again (see handleDisconnection) to trigger reconnection.
+                if !self.hasActivePairedConnection {
+                    self.broadcastIdentity()
+                }
+                if !self.inWakeRecoveryWindow {
+                    self.reconnectPairedDevices()
                 }
             }
         }
@@ -177,6 +190,11 @@ class DeviceManager: ObservableObject {
                 self?.checkConnectionHealth()
             }
         }
+    }
+
+    /// True while at least one paired device has a live, TLS-established connection.
+    private var hasActivePairedConnection: Bool {
+        tlsEstablishedDeviceIds.contains { Config.shared.isPaired(deviceId: $0) }
     }
 
     func broadcastIdentity() {
@@ -783,6 +801,11 @@ class DeviceManager: ObservableObject {
         connectingDeviceIds.removeAll()
         lastReconnectAttemptTime.removeAll()
         lastHeartbeatSent.removeAll()
+        // Reset the reconnect backoff too — it accumulates on any teardown that never
+        // reached TLS (including deliberate replacements and the sleep teardown). If it
+        // survives a wake/network change, reconnectPairedDevices can stay throttled for
+        // up to 300s and the device looks permanently stuck.
+        consecutiveTLSFailures.removeAll()
         for device in devices.values {
             if let clipPlugin = device.plugins["clipboard"] as? ClipboardPlugin {
                 clipPlugin.stop()
@@ -815,7 +838,7 @@ class DeviceManager: ObservableObject {
 
         tcpServer.start(preferredPort: Config.shared.tcpPort)
         Config.shared.tcpPort = tcpServer.actualPort
-        udpDiscovery.startListening(port: Config.shared.tcpPort)
+        udpDiscovery.startListening(port: Config.udpPort)
         KLog.log("[DeviceManager] Restarted transport services on port \(Config.shared.tcpPort)")
     }
 
@@ -902,6 +925,12 @@ class DeviceManager: ObservableObject {
                         device.batteryCharging = false
                         self.updateDeviceState(device, to: .disconnected)
                         self.devices[id] = device
+                        // Periodic broadcast is suppressed while a session is healthy, so
+                        // re-announce now that it dropped; this is what nudges the peer
+                        // into reconnecting.
+                        if !self.isAsleep && Config.shared.isPaired(deviceId: id) {
+                            self.broadcastIdentity()
+                        }
                     }
                     // else: outgoing failed before TLS (Connection refused, timeout, etc.)
                     // Keep device in .discovered state — phone will connect incoming shortly.

@@ -65,7 +65,7 @@ class UDPDiscovery {
         guard let data = packet.serialize() else { return }
 
         let addresses = getBroadcastAddresses() + ["255.255.255.255"]
-        KLog.log("[UDP] Broadcasting to \(addresses) on ports \(Config.minPort)-\(Config.maxPort)")
+        KLog.log("[UDP] Broadcasting to \(addresses) on port \(Config.udpPort)")
         for addr in addresses {
             var sockAddr = sockaddr_in()
             sockAddr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
@@ -74,14 +74,15 @@ class UDPDiscovery {
                 KLog.log("[UDP] inet_pton failed for broadcast address: \(addr)")
                 continue
             }
-            for port in Config.minPort...Config.maxPort {
-                sockAddr.sin_port = UInt16(port).bigEndian
+            // KDE Connect discovery is a single datagram on the fixed UDP port 1716.
+            // Broadcasting to the whole TCP range (1716-1764) is nonstandard and just
+            // multiplies traffic.
+            sockAddr.sin_port = Config.udpPort.bigEndian
 
-                _ = data.withUnsafeBytes { buf in
-                    withUnsafePointer(to: &sockAddr) { ptr in
-                        ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                            sendto(broadcastSocket, buf.baseAddress, data.count, 0, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
-                        }
+            _ = data.withUnsafeBytes { buf in
+                withUnsafePointer(to: &sockAddr) { ptr in
+                    ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                        sendto(broadcastSocket, buf.baseAddress, data.count, 0, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
                     }
                 }
             }

@@ -6,9 +6,13 @@ import ServiceManagement
 class Config: ObservableObject {
     static let shared = Config()
 
-    static let minPort: UInt16 = 1714
+    static let minPort: UInt16 = 1716
     static let maxPort: UInt16 = 1764
     static let defaultPort: UInt16 = 1716
+
+    /// Fixed UDP discovery port mandated by the KDE Connect protocol.
+    /// TCP lives in `minPort...maxPort`, but UDP discovery is always 1716.
+    static let udpPort: UInt16 = 1716
 
     nonisolated(unsafe) let deviceId: String
     @Published var deviceName: String
