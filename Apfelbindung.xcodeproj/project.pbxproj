@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000000000000000000001 /* KonnectMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* KonnectMacApp.swift */; };
+		A10000000000000000000001 /* ApfelbindungApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ApfelbindungApp.swift */; };
 		A10000000000000000000002 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* MenuBarView.swift */; };
 		A869B71B2A424FC7B870BCE8 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 910B6BCFA91447EEA5C68247 /* MainView.swift */; };
 		A10000000000000000000003 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* OnboardingView.swift */; };
@@ -40,8 +40,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		C10000000000000000000001 /* KonnectMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KonnectMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		B10000000000000000000001 /* KonnectMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KonnectMacApp.swift; sourceTree = "<group>"; };
+		C10000000000000000000001 /* Apfelbindung.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Apfelbindung.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000001 /* ApfelbindungApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApfelbindungApp.swift; sourceTree = "<group>"; };
 		B10000000000000000000002 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		910B6BCFA91447EEA5C68247 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
 		B10000000000000000000003 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -72,7 +72,7 @@
 		B10000000000000000000050 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		B10000000000000000000053 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Resources/AppIcon.icns; sourceTree = "<group>"; };
 		B10000000000000000000051 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		B10000000000000000000052 /* KonnectMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KonnectMac.entitlements; sourceTree = "<group>"; };
+		B10000000000000000000052 /* Apfelbindung.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Apfelbindung.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,7 +89,7 @@
 		E10000000000000000000001 /* = root group = */ = {
 			isa = PBXGroup;
 			children = (
-				E10000000000000000000002 /* KonnectMac */,
+				E10000000000000000000002 /* Apfelbindung */,
 				E10000000000000000000099 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -97,15 +97,15 @@
 		E10000000000000000000099 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C10000000000000000000001 /* KonnectMac.app */,
+				C10000000000000000000001 /* Apfelbindung.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		E10000000000000000000002 /* KonnectMac */ = {
+		E10000000000000000000002 /* Apfelbindung */ = {
 			isa = PBXGroup;
 			children = (
-				B10000000000000000000001 /* KonnectMacApp.swift */,
+				B10000000000000000000001 /* ApfelbindungApp.swift */,
 				B10000000000000000000002 /* MenuBarView.swift */,
 				910B6BCFA91447EEA5C68247 /* MainView.swift */,
 				B10000000000000000000003 /* OnboardingView.swift */,
@@ -118,9 +118,9 @@
 				B10000000000000000000050 /* Assets.xcassets */,
 				B10000000000000000000053 /* AppIcon.icns */,
 				B10000000000000000000051 /* Info.plist */,
-				B10000000000000000000052 /* KonnectMac.entitlements */,
+				B10000000000000000000052 /* Apfelbindung.entitlements */,
 			);
-			path = KonnectMac;
+			path = Apfelbindung;
 			sourceTree = "<group>";
 		};
 		E10000000000000000000003 /* Core */ = {
@@ -176,9 +176,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		F10000000000000000000001 /* KonnectMac */ = {
+		F10000000000000000000001 /* Apfelbindung */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F20000000000000000000001 /* Build configuration list for PBXNativeTarget "KonnectMac" */;
+			buildConfigurationList = F20000000000000000000001 /* Build configuration list for PBXNativeTarget "Apfelbindung" */;
 			buildPhases = (
 				F30000000000000000000001 /* Sources */,
 				D10000000000000000000001 /* Frameworks */,
@@ -188,9 +188,9 @@
 			);
 			dependencies = (
 			);
-			name = KonnectMac;
-			productName = KonnectMac;
-			productReference = C10000000000000000000001 /* KonnectMac.app */;
+			name = Apfelbindung;
+			productName = Apfelbindung;
+			productReference = C10000000000000000000001 /* Apfelbindung.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -208,7 +208,7 @@
 					};
 				};
 			};
-			buildConfigurationList = F60000000000000000000001 /* Build configuration list for PBXProject "KonnectMac" */;
+			buildConfigurationList = F60000000000000000000001 /* Build configuration list for PBXProject "Apfelbindung" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -221,7 +221,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				F10000000000000000000001 /* KonnectMac */,
+				F10000000000000000000001 /* Apfelbindung */,
 			);
 		};
 /* End PBXProject section */
@@ -243,7 +243,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000001 /* KonnectMacApp.swift in Sources */,
+				A10000000000000000000001 /* ApfelbindungApp.swift in Sources */,
 				A10000000000000000000002 /* MenuBarView.swift in Sources */,
 				A869B71B2A424FC7B870BCE8 /* MainView.swift in Sources */,
 				A10000000000000000000003 /* OnboardingView.swift in Sources */,
@@ -398,7 +398,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = KonnectMac/KonnectMac.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Apfelbindung/Apfelbindung.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -407,7 +407,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = KonnectMac/Info.plist;
+				INFOPLIST_FILE = Apfelbindung/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainNibFile = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -420,8 +420,8 @@
 					"-framework",
 					Security,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.konnectmac.app;
-				PRODUCT_NAME = KonnectMac;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apfelbindung.app;
+				PRODUCT_NAME = Apfelbindung;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -432,7 +432,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = KonnectMac/KonnectMac.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Apfelbindung/Apfelbindung.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -441,7 +441,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = KonnectMac/Info.plist;
+				INFOPLIST_FILE = Apfelbindung/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainNibFile = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -454,8 +454,8 @@
 					"-framework",
 					Security,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.konnectmac.app;
-				PRODUCT_NAME = KonnectMac;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apfelbindung.app;
+				PRODUCT_NAME = Apfelbindung;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -464,7 +464,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		F60000000000000000000001 /* Build configuration list for PBXProject "KonnectMac" */ = {
+		F60000000000000000000001 /* Build configuration list for PBXProject "Apfelbindung" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F70000000000000000000001 /* Debug */,
@@ -473,7 +473,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F20000000000000000000001 /* Build configuration list for PBXNativeTarget "KonnectMac" */ = {
+		F20000000000000000000001 /* Build configuration list for PBXNativeTarget "Apfelbindung" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F80000000000000000000001 /* Debug */,

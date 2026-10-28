@@ -1,5 +1,9 @@
-# KonnectMac — Full Technical Specification
+# Apfelbindung — Full Technical Specification
 ## A Native macOS KDE Connect Client
+
+> **Nota (fork):** este documento es la especificación original de KonnectMac,
+> conservada como referencia histórica. Describe el protocolo v7; el fork ya habla
+> protocolo v8 (ver `Apfelbindung/Core/NetworkPacket.swift`).
 
 **Version:** 1.0
 **Date:** March 2026
@@ -399,10 +403,10 @@ Copy to clipboard.
 ### 4.1 File Structure
 
 ```
-KonnectMac/
-├── KonnectMac.xcodeproj
-├── KonnectMac/
-│   ├── KonnectMacApp.swift           # App entry, menu bar setup, SMAppService
+Apfelbindung/
+├── Apfelbindung.xcodeproj
+├── Apfelbindung/
+│   ├── ApfelbindungApp.swift           # App entry, menu bar setup, SMAppService
 │   ├── MenuBarView.swift             # SwiftUI menu bar dropdown UI
 │   ├── PairingView.swift             # Pairing confirmation dialog
 │   ├── PreferencesView.swift         # Settings window
@@ -439,7 +443,7 @@ KonnectMac/
 │   │   └── Info.plist
 │   │
 │   └── Entitlements/
-│       └── KonnectMac.entitlements   # Network server, outgoing connections
+│       └── Apfelbindung.entitlements   # Network server, outgoing connections
 ```
 
 ### 4.2 State Machine — Device Lifecycle
@@ -525,7 +529,7 @@ KonnectMac/
 │  ─────────────────────────────── │
 │  ⚙ Preferences...                │
 │  ─────────────────────────────── │
-│  Quit KonnectMac                 │
+│  Quit Apfelbindung                 │
 └──────────────────────────────────┘
 ```
 
@@ -588,7 +592,7 @@ The app MUST handle macOS firewall prompts gracefully. On first TCP listen, macO
 
 | Setting | Value |
 |---------|-------|
-| Bundle Identifier | `com.konnectmac.app` |
+| Bundle Identifier | `com.apfelbindung.app` |
 | Deployment Target | macOS 14.0 |
 | Architectures | arm64 only |
 | Swift Language Version | 5.9+ |
@@ -678,7 +682,7 @@ Note: App Sandbox OFF. KDE Connect requires raw TCP/UDP socket access on specifi
 - [ ] File transfer: Receive URL → opens browser
 - [ ] Find phone: Ring and cancel from Mac
 - [ ] Auto-start: App launches on login
-- [ ] LuLu firewall: Works after allowing KonnectMac
+- [ ] LuLu firewall: Works after allowing Apfelbindung
 
 ---
 
@@ -696,7 +700,7 @@ Note: App Sandbox OFF. KDE Connect requires raw TCP/UDP socket access on specifi
 
 ## Appendix A: Full Capability List
 
-These are the packet types KonnectMac should advertise:
+These are the packet types Apfelbindung should advertise:
 
 **Incoming capabilities:**
 ```json

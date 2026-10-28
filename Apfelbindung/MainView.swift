@@ -411,7 +411,7 @@ struct MainView: View {
 
                 // Startup
                 SettingsGroupBox("Startup") {
-                    Toggle("Launch KonnectMac at login", isOn: $config.autoStart)
+                    Toggle("Launch Apfelbindung at login", isOn: $config.autoStart)
                         .toggleStyle(.checkbox)
                 }
 
@@ -466,12 +466,12 @@ struct MainView: View {
                                 .frame(width: 40, height: 40)
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("KonnectMac")
+                            Text("Apfelbindung")
                                 .font(.system(size: 14, weight: .semibold))
                             Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?")")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
-                            Text("Protocol v7 \u{2022} KDE Connect compatible")
+                            Text("Protocol v8 \u{2022} KDE Connect compatible")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.tertiary)
                         }

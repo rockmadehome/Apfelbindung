@@ -1,5 +1,10 @@
 # Hallazgos — Issues de KonnectMac
 
+> **Nota:** este documento se escribió antes del renombre del fork a **Apfelbindung**.
+> Las rutas `KonnectMac/...` que aparecen abajo corresponden a la estructura anterior;
+> hoy los archivos viven en `Apfelbindung/...`. El upstream sigue siendo
+> `aryarajsingh/KonnectMac`.
+
 Fecha de revisión: 2026-09-22
 Repo clonado: `rockmadehome/KonnectMac` (fork)
 Upstream: `aryarajsingh/KonnectMac`

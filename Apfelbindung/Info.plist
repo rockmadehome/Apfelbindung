@@ -3,19 +3,19 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>KonnectMac</string>
+    <string>Apfelbindung</string>
     <key>CFBundleDisplayName</key>
-    <string>KonnectMac</string>
+    <string>Apfelbindung</string>
     <key>CFBundleIdentifier</key>
-    <string>com.konnectmac.app</string>
+    <string>com.apfelbindung.app</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
     <key>CFBundleShortVersionString</key>
-    <string>3.0</string>
+    <string>$(MARKETING_VERSION)</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>KonnectMac</string>
+    <string>Apfelbindung</string>
     <key>LSUIElement</key>
     <true/>
     <key>LSMinimumSystemVersion</key>
@@ -33,11 +33,11 @@
     <array>
         <dict>
             <key>NSPortName</key>
-            <string>KonnectMac</string>
+            <string>Apfelbindung</string>
             <key>NSMenuItem</key>
             <dict>
                 <key>default</key>
-                <string>Send to Phone via KonnectMac</string>
+                <string>Send to Phone via Apfelbindung</string>
             </dict>
             <key>NSMessage</key>
             <string>openFilesService</string>

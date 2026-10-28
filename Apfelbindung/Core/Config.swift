@@ -189,7 +189,7 @@ class Config: ObservableObject {
     private func pairingDirectory() -> String {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
-        return appSupport.appendingPathComponent("KonnectMac/PairedDevices").path
+        return appSupport.appendingPathComponent("Apfelbindung/PairedDevices").path
     }
 
     private func pairingPath(for id: String) -> String {
@@ -207,7 +207,7 @@ class Config: ObservableObject {
 
     private static let launchAgentPath: String = {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return home + "/Library/LaunchAgents/com.konnectmac.app.plist"
+        return home + "/Library/LaunchAgents/com.apfelbindung.app.plist"
     }()
 
     private func updateLoginItem() {
@@ -226,10 +226,10 @@ class Config: ObservableObject {
         <plist version="1.0">
         <dict>
             <key>Label</key>
-            <string>com.konnectmac.app</string>
+            <string>com.apfelbindung.app</string>
             <key>ProgramArguments</key>
             <array>
-                <string>/Applications/KonnectMac.app/Contents/MacOS/KonnectMac</string>
+                <string>/Applications/Apfelbindung.app/Contents/MacOS/Apfelbindung</string>
             </array>
             <key>RunAtLoad</key>
             <true/>

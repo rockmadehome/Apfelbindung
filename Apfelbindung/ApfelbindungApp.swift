@@ -4,7 +4,7 @@ import Combine
 import Security
 
 @main
-struct KonnectMacApp: App {
+struct ApfelbindungApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -34,8 +34,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Single instance enforcement via lock file
         if !acquireLockFile() {
             let alert = NSAlert()
-            alert.messageText = "KonnectMac is already running"
-            alert.informativeText = "Another instance of KonnectMac is already active. Only one instance can run at a time."
+            alert.messageText = "Apfelbindung is already running"
+            alert.informativeText = "Another instance of Apfelbindung is already active. Only one instance can run at a time."
             alert.alertStyle = .warning
             alert.addButton(withTitle: "OK")
             alert.runModal()
@@ -52,7 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Suppress ALL keychain dialogs for this process.
         // Our app keychain has an empty password and is always unlocked,
         // so operations succeed silently. This prevents macOS from ever
-        // showing "KonnectMac wants to use keychain" prompts.
+        // showing "Apfelbindung wants to use keychain" prompts.
         SecKeychainSetUserInteractionAllowed(false)
 
         Config.shared.syncLoginItemStatus()
@@ -98,7 +98,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             KLog.log("[App] Cannot find Application Support directory", level: .error)
             return true // Allow launch anyway — don't block on lock failure
         }
-        let lockDir = appSupport.appendingPathComponent("KonnectMac")
+        let lockDir = appSupport.appendingPathComponent("Apfelbindung")
         try? FileManager.default.createDirectory(at: lockDir, withIntermediateDirectories: true)
         let lockPath = lockDir.appendingPathComponent(".lock").path
 
@@ -146,7 +146,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             backing: .buffered,
             defer: false
         )
-        window.title = "Welcome to KonnectMac"
+        window.title = "Welcome to Apfelbindung"
         window.delegate = self // Prevent Cmd+W from closing onboarding
         window.contentView = NSHostingView(rootView: onboardingView)
         window.center()
@@ -194,7 +194,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem?.button {
-            let img = NSImage(systemSymbolName: "antenna.radiowaves.left.and.right.slash", accessibilityDescription: "KonnectMac")
+            let img = NSImage(systemSymbolName: "antenna.radiowaves.left.and.right.slash", accessibilityDescription: "Apfelbindung")
             img?.isTemplate = true
             button.image = img
             button.target = self
@@ -233,7 +233,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let iconName = hasConnected
             ? "antenna.radiowaves.left.and.right"
             : "antenna.radiowaves.left.and.right.slash"
-        let img = NSImage(systemSymbolName: iconName, accessibilityDescription: "KonnectMac")
+        let img = NSImage(systemSymbolName: iconName, accessibilityDescription: "Apfelbindung")
         img?.isTemplate = true
         button.image = img
         KLog.log("[MenuBar] Icon updated: \(iconName), image=\(img != nil), buttonHidden=\(button.isHidden), frame=\(button.frame)")
@@ -317,7 +317,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             backing: .buffered,
             defer: false
         )
-        window.title = "KonnectMac"
+        window.title = "Apfelbindung"
         window.contentView = NSHostingView(rootView: MainView())
         window.center()
         window.isReleasedWhenClosed = false
@@ -375,7 +375,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                     KLog.log("[App] Notification auth result: granted=\(granted) error=\(error?.localizedDescription ?? "none")")
                 }
             } else if !granted {
-                KLog.log("[App] WARNING: Notifications not authorized. Users should enable in System Settings > Notifications > KonnectMac")
+                KLog.log("[App] WARNING: Notifications not authorized. Users should enable in System Settings > Notifications > Apfelbindung")
             }
         }
     }
@@ -446,7 +446,7 @@ extension AppDelegate {
             .sorted { ($0.kdeConn != nil ? 0 : 1) < ($1.kdeConn != nil ? 0 : 1) }
 
         guard !pairedDevices.isEmpty else {
-            error.pointee = "No paired devices. Open KonnectMac to pair a device." as NSString
+            error.pointee = "No paired devices. Open Apfelbindung to pair a device." as NSString
             return
         }
 

@@ -28,7 +28,7 @@ struct OnboardingView: View {
                         .foregroundStyle(.white)
                 }
 
-                Text("KonnectMac")
+                Text("Apfelbindung")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(.white)
                     .fixedSize()

@@ -1313,7 +1313,7 @@ class DeviceManager: ObservableObject {
 
     private func loadPairedDevices() {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
-        let dir = appSupport.appendingPathComponent("KonnectMac/PairedDevices")
+        let dir = appSupport.appendingPathComponent("Apfelbindung/PairedDevices")
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
 
         for file in files where file.hasSuffix(".der") {

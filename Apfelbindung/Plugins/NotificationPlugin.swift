@@ -24,7 +24,7 @@ class NotificationPlugin: PluginProtocol {
 
     private static let cacheDir: String = {
         let path = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("KonnectMac/AppIcons").path
+            .appendingPathComponent("Apfelbindung/AppIcons").path
         try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
         return path
     }()
@@ -458,7 +458,7 @@ class NotificationPlugin: PluginProtocol {
         let request = UNNotificationRequest(identifier: "notif-\(id)", content: content, trigger: nil)
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             guard settings.authorizationStatus == .authorized else {
-                KLog.log("[Notification] BLOCKED: not authorized (status=\(settings.authorizationStatus.rawValue)). Enable in System Settings > Notifications > KonnectMac")
+                KLog.log("[Notification] BLOCKED: not authorized (status=\(settings.authorizationStatus.rawValue)). Enable in System Settings > Notifications > Apfelbindung")
                 return
             }
             UNUserNotificationCenter.current().add(request) { error in

@@ -1,6 +1,6 @@
 #!/bin/bash
-APP="/Applications/KonnectMac.app"
-BUNDLE_ID="com.konnectmac.app"
+APP="/Applications/Apfelbindung.app"
+BUNDLE_ID="com.apfelbindung.app"
 
 # Resolve the REAL logged-in user (not root, which runs postinstall)
 REAL_USER=$(stat -f "%Su" /dev/console)
@@ -16,8 +16,8 @@ killall NotificationCenter 2>/dev/null
 chown -R "$REAL_USER" "$APP" 2>/dev/null
 
 # Create app data directories as the real user
-APP_SUPPORT="$REAL_HOME/Library/Application Support/KonnectMac"
-CACHE_DIR="$REAL_HOME/Library/Caches/KonnectMac"
+APP_SUPPORT="$REAL_HOME/Library/Application Support/Apfelbindung"
+CACHE_DIR="$REAL_HOME/Library/Caches/Apfelbindung"
 
 su "$REAL_USER" -c "mkdir -p '$APP_SUPPORT/PairedDevices'"
 su "$REAL_USER" -c "mkdir -p '$CACHE_DIR/AppIcons'"
@@ -27,7 +27,7 @@ if [ ! -f "$APP_SUPPORT/identity.p12" ]; then
     su "$REAL_USER" -c "defaults delete '$BUNDLE_ID' hasCompletedOnboarding 2>/dev/null"
 fi
 
-# Refresh Services menu so "Send to Phone via KonnectMac" appears immediately
+# Refresh Services menu so "Send to Phone via Apfelbindung" appears immediately
 /System/Library/CoreServices/pbs -update 2>/dev/null
 
 exit 0

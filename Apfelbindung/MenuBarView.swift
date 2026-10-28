@@ -76,13 +76,13 @@ struct MenuBarView: View {
 
             Divider().padding(.vertical, 6).padding(.horizontal, 12)
 
-            MenuItem("Open KonnectMac", icon: "rectangle") {
+            MenuItem("Open Apfelbindung", icon: "rectangle") {
                 AppDelegate.instance?.openMainWindow()
             }
             MenuItem("Preferences\u{2026}", icon: "gearshape") {
                 AppDelegate.instance?.openMainWindow(tab: .settings)
             }
-            MenuItem("Quit KonnectMac", icon: "power") {
+            MenuItem("Quit Apfelbindung", icon: "power") {
                 NSApp.terminate(nil)
             }
         }

@@ -11,10 +11,10 @@ class KLog {
     static let logPath: String = {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
-        return appSupport.appendingPathComponent("KonnectMac/konnectmac.log").path
+        return appSupport.appendingPathComponent("Apfelbindung/apfelbindung.log").path
     }()
 
-    private static let queue = DispatchQueue(label: "konnectmac.logger")
+    private static let queue = DispatchQueue(label: "apfelbindung.logger")
     private static let formatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

@@ -48,7 +48,7 @@ struct GeneralTab: View {
 
             GroupBox("Startup") {
                 VStack(alignment: .leading, spacing: 4) {
-                    Toggle("Launch KonnectMac at login", isOn: $config.autoStart)
+                    Toggle("Launch Apfelbindung at login", isOn: $config.autoStart)
                         .toggleStyle(.checkbox)
                 }
                 .padding(6)
@@ -391,23 +391,26 @@ struct AboutTab: View {
                     .font(.system(size: 48))
                     .foregroundColor(.blue)
             }
-            Text("KonnectMac")
+            Text("Apfelbindung")
                 .font(.title.bold())
             Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown")")
                 .foregroundColor(.secondary)
             Text("A native macOS KDE Connect client")
                 .foregroundColor(.secondary)
+            Text("Fork of KonnectMac by Aryaraj Singh")
+                .font(.caption)
+                .foregroundColor(.secondary)
 
             Divider().frame(width: 200)
 
             VStack(spacing: 4) {
-                Text("Protocol v7 • KDE Connect compatible")
+                Text("Protocol v8 • KDE Connect compatible")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("No third-party dependencies")
+                Text("No third-party dependencies • GPL v3")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("© \(Calendar.current.component(.year, from: Date())) Aryaraj Singh")
+                Text("© \(Calendar.current.component(.year, from: Date())) Aryaraj Singh (original project)")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.top, 4)
@@ -417,19 +420,18 @@ struct AboutTab: View {
 
             HStack(spacing: 16) {
                 Button(action: {
-                    NSWorkspace.shared.open(URL(string: "https://github.com/aryarajsingh/KonnectMac")!)
+                    NSWorkspace.shared.open(URL(string: "https://github.com/rockmadehome/Apfelbindung")!)
                 }) {
                     Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
                 .buttonStyle(.link)
 
                 Button(action: {
-                    NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/aryarajsingh")!)
+                    NSWorkspace.shared.open(URL(string: "https://github.com/aryarajsingh/KonnectMac")!)
                 }) {
-                    Label("Sponsor", systemImage: "heart.fill")
+                    Label("Original project", systemImage: "arrow.up.right.square")
                 }
                 .buttonStyle(.link)
-                .foregroundColor(.pink)
             }
             .font(.system(size: 12))
         }

@@ -8,13 +8,13 @@ class CertificateManager {
     static let shared = CertificateManager()
     private var cachedIdentity: SecIdentity?
     private let lock = NSLock()
-    private let p12Password = "KonnectMac"
+    private let p12Password = "Apfelbindung"
     private var appKeychain: SecKeychain?
 
     private let appSupportDir: URL = {
         let dir = (FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support"))
-            .appendingPathComponent("KonnectMac")
+            .appendingPathComponent("Apfelbindung")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }()
@@ -107,7 +107,7 @@ class CertificateManager {
         }
 
         // Per-call keychain so SecureTransport can't share state across handshakes.
-        let tempPath = NSTemporaryDirectory() + "konnectmac-conn-\(UUID().uuidString).keychain"
+        let tempPath = NSTemporaryDirectory() + "apfelbindung-conn-\(UUID().uuidString).keychain"
 
         var keychain: SecKeychain?
         let password = "" as NSString
@@ -161,8 +161,8 @@ class CertificateManager {
 
     private func generateP12() {
         let deviceId = Config.shared.deviceId
-        let keyPath = NSTemporaryDirectory() + "konnectmac-key.pem"
-        let certPath = NSTemporaryDirectory() + "konnectmac-cert.pem"
+        let keyPath = NSTemporaryDirectory() + "apfelbindung-key.pem"
+        let certPath = NSTemporaryDirectory() + "apfelbindung-cert.pem"
 
         KLog.log("[Cert] Starting cert generation for device \(deviceId)")
 
@@ -177,7 +177,7 @@ class CertificateManager {
             "-out", certPath,
             "-days", "3650",
             "-nodes",
-            "-subj", "/CN=\(deviceId)/O=KonnectMac"
+            "-subj", "/CN=\(deviceId)/O=Apfelbindung"
         )
 
         guard genResult == 0 else {
@@ -238,7 +238,7 @@ class CertificateManager {
     private func getOrCreateAppKeychain() -> SecKeychain? {
         if let existing = appKeychain { return existing }
 
-        let keychainPath = appSupportDir.appendingPathComponent("konnectmac.keychain").path
+        let keychainPath = appSupportDir.appendingPathComponent("apfelbindung.keychain").path
 
         // Delete and recreate the keychain on each launch.
         // This avoids errSecDuplicateItem (-26276) from previous imports
@@ -341,13 +341,13 @@ class CertificateManager {
         // Remove stale temp keychains from previous experiments
         let tmpDir = NSTemporaryDirectory()
         if let files = try? FileManager.default.contentsOfDirectory(atPath: tmpDir) {
-            for file in files where file.hasPrefix("konnectmac") && file.hasSuffix(".keychain") {
+            for file in files where file.hasPrefix("apfelbindung") && file.hasSuffix(".keychain") {
                 try? FileManager.default.removeItem(atPath: tmpDir + file)
             }
         }
 
         // Remove old temp keychains from app support dir (not the current one)
-        let currentKeychainName = "konnectmac.keychain"
+        let currentKeychainName = "apfelbindung.keychain"
         if let files = try? FileManager.default.contentsOfDirectory(atPath: appSupportDir.path) {
             for file in files where file.hasSuffix(".keychain") && file != currentKeychainName {
                 try? FileManager.default.removeItem(atPath: appSupportDir.appendingPathComponent(file).path)

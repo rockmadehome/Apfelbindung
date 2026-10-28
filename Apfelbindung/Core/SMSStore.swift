@@ -39,7 +39,7 @@ class SMSStore: ObservableObject {
 
     private init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        cacheDir = appSupport.appendingPathComponent("KonnectMac", isDirectory: true)
+        cacheDir = appSupport.appendingPathComponent("Apfelbindung", isDirectory: true)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }
 
