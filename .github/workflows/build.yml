@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build:
     name: Compile app
-    runs-on: macos-15
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
