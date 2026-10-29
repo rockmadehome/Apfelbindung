@@ -16,7 +16,7 @@ concurrency:
 jobs:
   package:
     name: Build .pkg and publish release
-    runs-on: macos-15
+    runs-on: macos-lastest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
