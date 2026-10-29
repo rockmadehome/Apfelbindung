@@ -5,9 +5,10 @@ PROJECT="Apfelbindung.xcodeproj"
 SCHEME="Apfelbindung"
 CONFIG="Release"
 APP_NAME="Apfelbindung"
+BUILD_ARCHS="${BUILD_ARCHS:-x86_64 arm64}"
 
 VERSION="${MARKETING_VERSION_OVERRIDE:-$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration "$CONFIG" -showBuildSettings 2>/dev/null \
-    | grep -m1 'MARKETING_VERSION' | awk '{print $3}')}"
+    | grep -m1 'MARKETING_VERSION' | awk '{print $3}') }"
 BUILD_NUM=$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration "$CONFIG" -showBuildSettings 2>/dev/null \
     | grep -m1 'CURRENT_PROJECT_VERSION' | awk '{print $3}')
 
@@ -17,9 +18,12 @@ if [ -z "$VERSION" ]; then
 fi
 
 PKG_NAME="Apfelbindung-${VERSION}.pkg"
-echo "Building ${APP_NAME} v${VERSION} (${BUILD_NUM})..."
+echo "Building ${APP_NAME} v${VERSION} (${BUILD_NUM}) for ${BUILD_ARCHS}..."
 
 xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration "$CONFIG" clean build \
+    ARCHS="$BUILD_ARCHS" \
+    VALID_ARCHS="$BUILD_ARCHS" \
+    ONLY_ACTIVE_ARCH=NO \
     MARKETING_VERSION="$VERSION" \
     BUILD_NUMBER="$BUILD_NUM"
 
